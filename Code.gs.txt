@@ -1125,24 +1125,102 @@ function calculateCpcDistribution(params) {
   params = params || {};
   var requestedOp = String(params.operacao || '').trim();
   var requestedSub = String(params.suboperacao || '').trim();
-  var routeConfigs = listRouteApiConfigs();
+  var routeConfigs = listRouteApiConfigs().filter(function(rc){
+    if (requestedOp && rc.operacao !== requestedOp) return false;
+    if (requestedSub && rc.suboperacao !== requestedSub) return false;
+    return true;
+  });
+
+  var cfg = getConfig();
+  var p1Entries = (cfg.rows || []).filter(function(r){
+    if (String(r.parte || '').toUpperCase() !== 'P1') return false;
+    if (requestedOp && r.operacao !== requestedOp) return false;
+    if (requestedSub && r.suboperacao !== requestedSub) return false;
+    return true;
+  });
+
   var routeByKey = {};
   routeConfigs.forEach(function(rc){ routeByKey[rc.operacao + '||' + rc.suboperacao] = rc; });
 
-  var cfg = getConfig();
-  var p1Entries = (cfg.rows || []).filter(function(r){ return String(r.parte || '').toUpperCase() === 'P1'; });
-  var pool = {};
+  var localUrlsByGroup = {};
   p1Entries.forEach(function(entry){
-    var op = String(entry.operacao || '').trim();
-    var sub = String(entry.suboperacao || '').trim();
-    if (!op || !sub) return;
-    if (requestedOp && op !== requestedOp) return;
-    if (requestedSub && sub !== requestedSub) return;
-    var key = op + '||' + sub;
-    if (!pool[key]) pool[key] = { operacao: op, suboperacao: sub, urls: {} };
+    var key = String(entry.operacao || '').trim() + '||' + String(entry.suboperacao || '').trim();
+    if (!localUrlsByGroup[key]) localUrlsByGroup[key] = {};
     (entry.urls || []).forEach(function(u){
       var normalized = normUrlStrict_(u);
-      if (normalized) pool[key].urls[normalized] = true;
+      if (normalized) localUrlsByGroup[key][normalized] = true;
+    });
+  });
+
+  var routeUrlsByGroup = {};
+  var routeCurrentPctByGroup = {};
+  var routeFetchWarnings = {};
+
+  function pushFetchWarning_(groupKey, message) {
+    if (!routeFetchWarnings[groupKey]) routeFetchWarnings[groupKey] = [];
+    routeFetchWarnings[groupKey].push(message);
+  }
+
+  routeConfigs.forEach(function(rc){
+    var groupKey = rc.operacao + '||' + rc.suboperacao;
+    if (!routeUrlsByGroup[groupKey]) routeUrlsByGroup[groupKey] = {};
+    if (!routeCurrentPctByGroup[groupKey]) routeCurrentPctByGroup[groupKey] = {};
+
+    if (!rc.empresaId || !rc.dominioId || !rc.slugRota) {
+      pushFetchWarning_(groupKey, 'Configuração de rota incompleta para carregar URLs da API.');
+      return;
+    }
+
+    var routeResponse = fetchRouteSnapshot_(rc);
+    if (!routeResponse || !routeResponse.ok) {
+      pushFetchWarning_(groupKey, 'Falha ao carregar links da rota para prévia.');
+      return;
+    }
+
+    var routeLinks = (((routeResponse.body || {}).data || {}).links || []);
+    if (!routeLinks.length) {
+      pushFetchWarning_(groupKey, 'Rota sem links retornados pela API.');
+      return;
+    }
+
+    routeLinks.forEach(function(link){
+      var normalized = normUrlStrict_(link.url || link.link || link.destination_url || '');
+      if (!normalized) return;
+      routeUrlsByGroup[groupKey][normalized] = true;
+      routeCurrentPctByGroup[groupKey][normalized] = toNumber_(link.percentage || link.percentual || 0);
+    });
+  });
+
+  var groupsMap = {};
+
+  Object.keys(localUrlsByGroup).forEach(function(groupKey){
+    if (!groupsMap[groupKey]) {
+      var parts = groupKey.split('||');
+      groupsMap[groupKey] = { operacao: parts[0] || '', suboperacao: parts[1] || '', urls: {} };
+    }
+    Object.keys(localUrlsByGroup[groupKey]).forEach(function(url){ groupsMap[groupKey].urls[url] = true; });
+  });
+
+  Object.keys(routeUrlsByGroup).forEach(function(groupKey){
+    if (!groupsMap[groupKey]) {
+      var parts = groupKey.split('||');
+      groupsMap[groupKey] = { operacao: parts[0] || '', suboperacao: parts[1] || '', urls: {} };
+    }
+    Object.keys(routeUrlsByGroup[groupKey]).forEach(function(url){ groupsMap[groupKey].urls[url] = true; });
+  });
+
+  Object.keys(routeByKey).forEach(function(groupKey){
+    if (!groupsMap[groupKey]) {
+      var parts = groupKey.split('||');
+      groupsMap[groupKey] = { operacao: parts[0] || '', suboperacao: parts[1] || '', urls: {} };
+    }
+  });
+
+  var metricsByGroup = {};
+  Object.keys(groupsMap).forEach(function(groupKey){
+    metricsByGroup[groupKey] = {};
+    Object.keys(groupsMap[groupKey].urls).forEach(function(url){
+      metricsByGroup[groupKey][url] = { impressions: 0, clicks: 0, revenue: 0, requests: 0, coverageReqWeighted: 0 };
     });
   });
 
@@ -1151,9 +1229,6 @@ function calculateCpcDistribution(params) {
   var headers = data[0] || [];
   var idx = getHeaderIndexMap_(headers);
   var col = {
-    date: idx[HEADER_MAP.date],
-    hour: idx[HEADER_MAP.hour],
-    channel: idx[HEADER_MAP.channel],
     url: idx[HEADER_MAP.url],
     impressions: idx[HEADER_MAP.impressions],
     clicks: idx[HEADER_MAP.clicks],
@@ -1162,19 +1237,11 @@ function calculateCpcDistribution(params) {
     coverage: idx[HEADER_MAP.coverage]
   };
 
-  var metricsByGroup = {};
-  Object.keys(pool).forEach(function(key){
-    metricsByGroup[key] = {};
-    Object.keys(pool[key].urls).forEach(function(url){
-      metricsByGroup[key][url] = { impressions: 0, clicks: 0, revenue: 0, requests: 0, coverageReqWeighted: 0, reasons: [] };
-    });
-  });
-
   data.slice(1).forEach(function(row){
-    var url = normUrlStrict_(row[col.url] || '');
-    if (!url) return;
+    var normalizedUrl = normUrlStrict_(row[col.url] || '');
+    if (!normalizedUrl) return;
     Object.keys(metricsByGroup).forEach(function(groupKey){
-      var bucket = metricsByGroup[groupKey][url];
+      var bucket = metricsByGroup[groupKey][normalizedUrl];
       if (!bucket) return;
       var requests = toNumber_(row[col.requests]);
       var coverage = toNumber_(row[col.coverage]);
@@ -1187,20 +1254,28 @@ function calculateCpcDistribution(params) {
   });
 
   var resultGroups = [];
-  Object.keys(pool).forEach(function(groupKey){
-    var group = pool[groupKey];
+  Object.keys(groupsMap).forEach(function(groupKey){
+    var group = groupsMap[groupKey];
+    var routeCfg = routeByKey[groupKey] || null;
+    var routeUrlsSet = routeUrlsByGroup[groupKey] || {};
+    var localUrlsSet = localUrlsByGroup[groupKey] || {};
+    var routeCurrentPct = routeCurrentPctByGroup[groupKey] || {};
+
     var candidates = Object.keys(group.urls).map(function(url){
       var m = metricsByGroup[groupKey][url] || { impressions:0, clicks:0, revenue:0, requests:0, coverageReqWeighted:0 };
       var coverage = m.requests > 0 ? (m.coverageReqWeighted / m.requests) : 0;
       var perdaUsuario = (m.requests * (coverage / 100)) - m.impressions;
       var correctedClicks = m.clicks + Math.ceil(Math.max(0, perdaUsuario));
       var cpcCorrigido = correctedClicks > 0 ? (m.revenue / correctedClicks) : 0;
+
       var reasons = [];
+      if (!localUrlsSet[url]) reasons.push('URL existe na rota, mas não existe na suboperação local.');
+      if (!routeUrlsSet[url]) reasons.push('URL existe na suboperação local, mas não existe na rota.');
+      if (!routeCfg) reasons.push('Sem configuração de rota/API para Operação + Suboperação');
+      else if (!routeCfg.automacaoAtiva) reasons.push('Automação inativa para Operação + Suboperação');
       if (m.requests > 50 && m.revenue <= 0) reasons.push('Mais de 50 solicitações e receita zero');
       if (!isFinite(cpcCorrigido) || cpcCorrigido <= 0) reasons.push('CPC Corrigido inválido/zerado');
-      var route = routeByKey[group.operacao + '||' + group.suboperacao];
-      if (!route) reasons.push('Sem configuração de rota/API para Operação + Suboperação');
-      else if (!route.automacaoAtiva) reasons.push('Automação inativa para URL');
+
       return {
         operacao: group.operacao,
         suboperacao: group.suboperacao,
@@ -1208,11 +1283,11 @@ function calculateCpcDistribution(params) {
         requests: m.requests,
         revenue: m.revenue,
         cpcCorrigido: cpcCorrigido,
-        routeConfig: route || null,
+        routeConfig: routeCfg,
         eligible: reasons.length === 0,
         exclusionReasons: reasons,
         percentualSugerido: 0,
-        percentualAtualRota: null,
+        percentualAtualRota: routeCurrentPct.hasOwnProperty(url) ? routeCurrentPct[url] : null,
         diferencaPercentual: null
       };
     });
@@ -1235,20 +1310,31 @@ function calculateCpcDistribution(params) {
           c.percentualSugerido = Math.min(maxP, Math.max(minP, raw));
         });
         var sum = eligible.reduce(function(acc, c){ return acc + c.percentualSugerido; }, 0);
-        if (sum > 0) {
-          eligible.forEach(function(c){ c.percentualSugerido = (c.percentualSugerido / sum) * 100; });
-        }
+        if (sum > 0) eligible.forEach(function(c){ c.percentualSugerido = (c.percentualSugerido / sum) * 100; });
       }
     }
+
+    candidates.forEach(function(c){
+      if (c.percentualAtualRota != null) c.diferencaPercentual = c.percentualSugerido - c.percentualAtualRota;
+    });
+
+    var groupWarnings = (routeFetchWarnings[groupKey] || []).slice();
+    candidates.forEach(function(c){ if (!c.eligible) groupWarnings.push(c.urlP1 + ': ' + c.exclusionReasons.join(', ')); });
 
     resultGroups.push({
       operacao: group.operacao,
       suboperacao: group.suboperacao,
       urls: candidates,
-      avisos: candidates.filter(function(c){ return !c.eligible; }).map(function(c){ return c.urlP1 + ': ' + c.exclusionReasons.join(', '); }),
-      ultimaSincronizacao: (candidates.find(function(c){ return c.routeConfig && c.routeConfig.ultimaSincronizacao; }) || {}).routeConfig ? (candidates.find(function(c){ return c.routeConfig && c.routeConfig.ultimaSincronizacao; }).routeConfig.ultimaSincronizacao || '') : ''
+      avisos: groupWarnings,
+      ultimaSincronizacao: routeCfg ? (routeCfg.ultimaSincronizacao || '') : ''
     });
   });
+
+  resultGroups.sort(function(a,b){
+    if (a.operacao !== b.operacao) return String(a.operacao || '').localeCompare(String(b.operacao || ''), 'pt-BR');
+    return String(a.suboperacao || '').localeCompare(String(b.suboperacao || ''), 'pt-BR');
+  });
+
   return { groups: resultGroups, generatedAt: new Date() };
 }
 
