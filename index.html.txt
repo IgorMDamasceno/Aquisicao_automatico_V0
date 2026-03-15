@@ -88,10 +88,7 @@
           <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3.75 3A1.75 1.75 0 002 4.75v2.5C2 8.216 2.784 9 3.75 9h12.5A1.75 1.75 0 0018 7.25v-2.5A1.75 1.75 0 0016.25 3H3.75zM2 12.75C2 11.784 2.784 11 3.75 11h12.5c.966 0 1.75.784 1.75 1.75v2.5A1.75 1.75 0 0116.25 17H3.75A1.75 1.75 0 012 15.25v-2.5z"/></svg>
           Rotas/API
         </button>
-        <button id="tab-dist" class="px-4 py-2 rounded-lg text-slate-300 hover:text-white flex items-center gap-2 transition-all">
-          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.5 11a.75.75 0 01.75-.75h2.69l1.56-3.12a.75.75 0 011.342.04l1.688 4.22 1.629-2.715a.75.75 0 011.233-.051l1.17 1.462h2.437a.75.75 0 010 1.5H15.2a.75.75 0 01-.586-.281l-.86-1.075-1.864 3.107a.75.75 0 01-1.353-.102L8.8 8.896 7.29 11.913a.75.75 0 01-.671.414H3.25A.75.75 0 012.5 11z"/></svg>
-          Distribuição Inteligente
-        </button>
+        
       </div>
     </header>
 
@@ -165,6 +162,7 @@
           <div class="inline-flex rounded-xl pill p-1">
             <button id="sub-ana" class="px-4 py-2 rounded-lg bg-teal-600 text-white font-semibold transition-all">Análise</button>
             <button id="sub-comp" class="px-4 py-2 rounded-lg text-slate-300 hover:text-white transition-all">Comparativo</button>
+            <button id="sub-dist" class="px-4 py-2 rounded-lg text-slate-300 hover:text-white transition-all">Distribuição Inteligente</button>
           </div>
           <button id="btn-aplicar" class="bg-sky-600 hover:bg-sky-500 text-white font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-sky-900/50 transition-all duration-300 hover:shadow-xl hover:shadow-sky-700/40 flex items-center gap-2">
             <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3.75a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5a.75.75 0 01.75-.75zM10 8.75a.75.75 0 01.75.75v6.5a.75.75 0 01-1.5 0v-6.5a.75.75 0 01.75-.75zM3.25 5.25a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM3.25 10a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75zM3.25 14.75a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM12.75 5.25a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75zM12.75 10a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zM12.75 14.75a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75z" /></svg>
@@ -175,6 +173,20 @@
 
       <div id="analysis-content" class="space-y-8"></div>
       <div id="compare-content" class="space-y-8 hidden"></div>
+      <div id="dist-content" class="space-y-6 hidden">
+        <div class="card rounded-2xl p-6 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 class="text-lg font-bold text-slate-100">Distribuição Inteligente (CPC Corrigido)</h2>
+            <p class="text-xs text-slate-400">Prévia disponível após aplicar filtros com Operação/Suboperação.</p>
+          </div>
+          <div class="flex gap-2"><button id="btn-dist-reload" class="pill px-4 py-2 rounded-xl">Atualizar prévia</button><button id="btn-dist-sync" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl text-white font-semibold">Sincronizar agora</button></div>
+        </div>
+        <div id="dist-summary" class="space-y-4"></div>
+        <div class="card rounded-2xl p-6 overflow-auto">
+          <h3 class="text-sm font-semibold text-slate-200 mb-2">Histórico recente</h3>
+          <table class="w-full text-xs"><tbody id="dist-history"></tbody></table>
+        </div>
+      </div>
     </section>
 
     <section id="view-conf" class="hidden fade-in space-y-6">
@@ -313,20 +325,7 @@
       </div>
     </section>
 
-    <section id="view-dist" class="hidden fade-in space-y-6">
-      <div class="card rounded-2xl p-6 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 class="text-lg font-bold text-slate-100">Distribuição Inteligente (CPC Corrigido)</h2>
-          <p class="text-xs text-slate-400">Distribuição por Operação + Suboperação com regra de corte de 50 solicitações sem receita.</p>
-        </div>
-        <div class="flex gap-2"><button id="btn-dist-reload" class="pill px-4 py-2 rounded-xl">Atualizar prévia</button><button id="btn-dist-sync" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl text-white font-semibold">Sincronizar agora</button></div>
-      </div>
-      <div id="dist-summary" class="space-y-4"></div>
-      <div class="card rounded-2xl p-6 overflow-auto">
-        <h3 class="text-sm font-semibold text-slate-200 mb-2">Histórico recente</h3>
-        <table class="w-full text-xs"><tbody id="dist-history"></tbody></table>
-      </div>
-    </section>
+    
   </div>
 
   <div id="toast-container"></div>
@@ -1070,6 +1069,7 @@ function todayIso(){
     var FILTRO_OPERACAO = { options: [], selected: '', open: false, searchTerm: '', placeholder: '— selecione —', disabled: true };
     var FILTRO_SUBOPERACAO = { options: [], selected: '', open: false, searchTerm: '', placeholder: '— selecione —', disabled: true };
     var CHART = { inst: null };
+    window.LAST_DASH_FILTERS = null;
     var COORD = { operations: [], operationMap: {}, cpcTargets: {}, loading: false, lastResponse: null };
     var CoordAccess = { granted: false, hash: '87402fdebedf4d5bf24d2f80aca3ae0197e8837d16a9c0155f366343c1f6a4bf', fallback: 'b10d26f7', pending: null, verifying: false };
     var SYNC_TIMERS = {};
@@ -1097,8 +1097,7 @@ function todayIso(){
         dash: { button: byId('tab-dash'), view: byId('view-dash') },
         conf: { button: byId('tab-conf'), view: byId('view-conf') },
         coord: { button: byId('tab-coord'), view: byId('view-coord') },
-        rotas: { button: byId('tab-rotas'), view: byId('view-rotas') },
-        dist: { button: byId('tab-dist'), view: byId('view-dist') }
+        rotas: { button: byId('tab-rotas'), view: byId('view-rotas') }
       };
 
       function setActiveTab(tab){
@@ -1119,7 +1118,6 @@ function todayIso(){
         });
         if (tab === 'coord') { loadCoordinationData(); }
         if (tab === 'rotas') { loadRouteConfigs(); }
-        if (tab === 'dist') { loadDistributionIntelligence(); }
       }
 
       Object.keys(tabMap).forEach(function(key){
@@ -1133,10 +1131,29 @@ function todayIso(){
 
       var subAna = byId('sub-ana');
       var subComp = byId('sub-comp');
-      if (subAna && subComp) {
-        subAna.onclick = function(){ byId('analysis-content').classList.remove('hidden'); byId('compare-content').classList.add('hidden'); this.classList.add('bg-teal-600','text-white'); subComp.classList.remove('bg-teal-600','text-white'); };
-        subComp.onclick = function(){ byId('compare-content').classList.remove('hidden'); byId('analysis-content').classList.add('hidden'); this.classList.add('bg-teal-600','text-white'); subAna.classList.remove('bg-teal-600','text-white'); };
+      var subDist = byId('sub-dist');
+      function setDashSubTab(active){
+        var map = {
+          ana: { btn: subAna, view: byId('analysis-content') },
+          comp: { btn: subComp, view: byId('compare-content') },
+          dist: { btn: subDist, view: byId('dist-content') }
+        };
+        Object.keys(map).forEach(function(key){
+          var item = map[key];
+          if (!item.btn || !item.view) return;
+          var on = (key === active);
+          item.view.classList.toggle('hidden', !on);
+          item.btn.classList.toggle('bg-teal-600', on);
+          item.btn.classList.toggle('text-white', on);
+        });
       }
+      window.setDashSubTab = setDashSubTab;
+      if (subAna && subComp && subDist) {
+        subAna.onclick = function(){ setDashSubTab('ana'); };
+        subComp.onclick = function(){ setDashSubTab('comp'); };
+        subDist.onclick = function(){ setDashSubTab('dist'); if (window.LAST_DASH_FILTERS) loadDistributionIntelligence(window.LAST_DASH_FILTERS); };
+      }
+      setDashSubTab('ana');
     })();
 
     function loadConfig(){
@@ -1650,6 +1667,8 @@ function todayIso(){
           .withSuccessHandler(function(res){
             hideLoading();
             renderDashboard(res);
+            window.LAST_DASH_FILTERS = params;
+            loadDistributionIntelligence(params);
           })
           .withFailureHandler(function(err){
             hideLoading();
@@ -3061,7 +3080,16 @@ function todayIso(){
       };
     }
 
-    function loadDistributionIntelligence(){
+    function loadDistributionIntelligence(filters){
+      var op = filters && filters.operacao ? filters.operacao : '';
+      var sub = filters && filters.suboperacao ? filters.suboperacao : '';
+      var container = byId('dist-summary');
+      var historyTb = byId('dist-history');
+      if (!op || !sub) {
+        if (container) container.innerHTML = '<div class="card rounded-2xl p-6 text-slate-400">Selecione Operação e Suboperação e clique em Aplicar Filtros para liberar esta visão.</div>';
+        if (historyTb) historyTb.innerHTML = '<tr><td class="text-slate-400">Sem histórico.</td></tr>';
+        return;
+      }
       google.script.run.withSuccessHandler(function(res){
         var container = byId('dist-summary');
         if (!container) return;
@@ -3074,7 +3102,7 @@ function todayIso(){
           }).join('');
           return '<div class="card rounded-2xl p-4"><div class="flex items-center justify-between"><h3 class="font-semibold text-slate-100">'+escapeHtml(g.operacao)+' / '+escapeHtml(g.suboperacao)+'</h3><span class="text-xs text-slate-400">Última sync: '+escapeHtml(g.ultimaSincronizacao||'—')+'</span></div><div class="overflow-auto mt-3"><table class="w-full text-sm"><thead class="text-slate-400"><tr><th class="text-left py-2 px-2">URL P1</th><th class="text-right py-2 px-2">CPC Corrigido</th><th class="text-right py-2 px-2">Solicitações</th><th class="text-right py-2 px-2">Receita</th><th class="text-right py-2 px-2">% Sugerido</th><th class="text-right py-2 px-2">% Atual</th><th class="text-right py-2 px-2">Dif.</th><th class="text-left py-2 px-2">Status</th><th class="text-left py-2 px-2">Avisos</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
         }).join('');
-      }).calculateCpcDistribution({});
+      }).calculateCpcDistribution({ operacao: (filters && filters.operacao) || '', suboperacao: (filters && filters.suboperacao) || '' });
 
       google.script.run.withSuccessHandler(function(rows){
         var tb = byId('dist-history');
@@ -3085,11 +3113,12 @@ function todayIso(){
 
     function wireDistributionActions(){
       var reloadBtn = byId('btn-dist-reload');
-      if (reloadBtn) reloadBtn.onclick = function(){ loadDistributionIntelligence(); };
+      if (reloadBtn) reloadBtn.onclick = function(){ loadDistributionIntelligence(window.LAST_DASH_FILTERS || null); };
       var syncBtn = byId('btn-dist-sync');
       if (syncBtn) syncBtn.onclick = function(){
         showLoading('Sincronizando distribuição com API...');
-        google.script.run.withSuccessHandler(function(res){ hideLoading(); showToast('Sincronização finalizada. Histórico: '+(res.historyCount||0)+', avisos: '+(res.warningCount||0), 'success'); loadDistributionIntelligence(); loadRouteConfigs(); }).withFailureHandler(function(err){ hideLoading(); showToast(err && err.message ? err.message : 'Falha na sincronização.', 'error'); }).syncCpcDistributionNow({});
+        var activeFilters = window.LAST_DASH_FILTERS || {};
+        google.script.run.withSuccessHandler(function(res){ hideLoading(); showToast('Sincronização finalizada. Histórico: '+(res.historyCount||0)+', avisos: '+(res.warningCount||0), 'success'); loadDistributionIntelligence(activeFilters); loadRouteConfigs(); }).withFailureHandler(function(err){ hideLoading(); showToast(err && err.message ? err.message : 'Falha na sincronização.', 'error'); }).syncCpcDistributionNow({ operacao: activeFilters.operacao || '', suboperacao: activeFilters.suboperacao || '' });
       };
     }
 
