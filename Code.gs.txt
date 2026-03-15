@@ -183,22 +183,31 @@ function getConfig() {
       });
     }
   });
-  var pessoasSet = {}, opsByPessoa = {}, paginasByOp = {};
+  var pessoasSet = {}, opsByPessoa = {}, subsByOp = {}, paginasByOp = {}, paginasByOpSub = {};
   data.forEach(function(d) {
     pessoasSet[d.pessoa] = true;
     if (!opsByPessoa[d.pessoa]) opsByPessoa[d.pessoa] = {};
     opsByPessoa[d.pessoa][d.operacao] = true;
-    var key = d.pessoa + '||' + d.operacao;
-    if (!paginasByOp[key]) paginasByOp[key] = {};
-    paginasByOp[key][d.pagina] = true;
+    var keyOp = d.pessoa + '||' + d.operacao;
+    if (!subsByOp[keyOp]) subsByOp[keyOp] = {};
+    if (d.suboperacao) subsByOp[keyOp][d.suboperacao] = true;
+    if (!paginasByOp[keyOp]) paginasByOp[keyOp] = {};
+    paginasByOp[keyOp][d.pagina] = true;
+    var keyOpSub = d.pessoa + '||' + d.operacao + '||' + d.suboperacao;
+    if (!paginasByOpSub[keyOpSub]) paginasByOpSub[keyOpSub] = {};
+    paginasByOpSub[keyOpSub][d.pagina] = true;
   });
   var pessoas = Object.keys(pessoasSet).sort();
   var opsByPessoaObj = {};
-  Object.keys(opsByPessoa).forEach(p => { opsByPessoaObj[p] = Object.keys(opsByPessoa[p]).sort(); });
+  Object.keys(opsByPessoa).forEach(function(p){ opsByPessoaObj[p] = Object.keys(opsByPessoa[p]).sort(); });
+  var subsByOpObj = {};
+  Object.keys(subsByOp).forEach(function(k){ subsByOpObj[k] = Object.keys(subsByOp[k]).sort(); });
   var paginasByOpObj = {};
-  Object.keys(paginasByOp).forEach(k => { paginasByOpObj[k] = Object.keys(paginasByOp[k]).sort(); });
+  Object.keys(paginasByOp).forEach(function(k){ paginasByOpObj[k] = Object.keys(paginasByOp[k]).sort(); });
+  var paginasByOpSubObj = {};
+  Object.keys(paginasByOpSub).forEach(function(k){ paginasByOpSubObj[k] = Object.keys(paginasByOpSub[k]).sort(); });
 
-  return { rows: data, pessoas: pessoas, opsByPessoa: opsByPessoaObj, paginasByOp: paginasByOpObj };
+  return { rows: data, pessoas: pessoas, opsByPessoa: opsByPessoaObj, subsByOp: subsByOpObj, paginasByOp: paginasByOpObj, paginasByOpSub: paginasByOpSubObj };
 }
 
 function upsertConfig(row) {
@@ -365,7 +374,7 @@ function upsertPricingRulesIgoal(rules) {
 /* ============= DASHBOARD ============= */
 function getDashboardData(params) {
   params = params || {};
-  var pessoa = params.pessoa, operacao = params.operacao, paginasSelecionadas = params.paginasSelecionadas || [],
+  var pessoa = params.pessoa, operacao = params.operacao, suboperacao = String(params.suboperacao || '').trim(), paginasSelecionadas = params.paginasSelecionadas || [],
       startDate = params.startDate, endDate = params.endDate, granularity = params.granularity || 'hour';
   var gran = (granularity === 'day' || granularity === 'last6h' || granularity === 'last3h') ? granularity : 'hour';
   var emptyReturn = { pages: [], compare: [], compareBlocks: [], granularity: gran, seriesChart: [], labelsChart: [], seriesChartByBlock: {}, pricingRulesAdSeleto: [], pricingRulesIgoal: [] };
@@ -381,7 +390,11 @@ if (!startDate && !endDate) {
     startDate = endDate;
   }
 
-  var cfgAll = getConfig().rows.filter(r => r.pessoa === pessoa && r.operacao === operacao);
+  var cfgAll = getConfig().rows.filter(function(r){
+    if (r.pessoa !== pessoa || r.operacao !== operacao) return false;
+    if (suboperacao && r.suboperacao !== suboperacao) return false;
+    return true;
+  });
   var pageIndex = {};
   cfgAll.forEach(r => {
     if (paginasSelecionadas.includes(r.pagina)) {
@@ -980,7 +993,7 @@ const DISTRIBUTION_DEFAULT_LIMITS = { minPercent: 0, maxPercent: 100 };
 function ensureRouteConfigSheet_() {
   var ss = SpreadsheetApp.getActive();
   var sh = ss.getSheetByName(ROUTE_CONFIG_SHEET);
-  var headers = ['ID','Operação','Suboperação','URL P1','Empresa ID','Domínio ID','Slug da Rota','Automação Ativa','Min %','Max %','Última Sincronização'];
+  var headers = ['ID','Operação','Suboperação','Empresa ID','Domínio ID','Slug da Rota','Automação Ativa','Min %','Max %','Última Sincronização'];
   if (!sh) {
     sh = ss.insertSheet(ROUTE_CONFIG_SHEET);
     sh.getRange(1,1,1,headers.length).setValues([headers]);
@@ -1029,7 +1042,6 @@ function listRouteApiConfigs() {
       id: String(r[idx['ID']] || ''),
       operacao: String(r[idx['Operação']] || '').trim(),
       suboperacao: String(r[idx['Suboperação']] || '').trim(),
-      urlP1: normUrlStrict_(String(r[idx['URL P1']] || '')),
       empresaId: String(r[idx['Empresa ID']] || '').trim(),
       dominioId: String(r[idx['Domínio ID']] || '').trim(),
       slugRota: String(r[idx['Slug da Rota']] || '').trim(),
@@ -1045,23 +1057,20 @@ function saveRouteApiConfig(payload) {
   payload = payload || {};
   var operacao = String(payload.operacao || '').trim();
   var suboperacao = String(payload.suboperacao || '').trim();
-  var urlP1 = normUrlStrict_(payload.urlP1 || '');
-  if (!operacao || !suboperacao || !urlP1) throw new Error('Operação, Suboperação e URL P1 são obrigatórios.');
+  if (!operacao || !suboperacao) throw new Error('Operação e Suboperação são obrigatórios.');
   var sh = ensureRouteConfigSheet_();
   var values = sh.getDataRange().getValues();
   var idx = getHeaderIndexMap_(values[0] || []);
   var duplicate = values.slice(1).some(function(r){
     if (payload.id && String(r[idx['ID']] || '') === String(payload.id)) return false;
     return String(r[idx['Operação']] || '').trim().toLowerCase() === operacao.toLowerCase() &&
-           String(r[idx['Suboperação']] || '').trim().toLowerCase() === suboperacao.toLowerCase() &&
-           normUrlStrict_(r[idx['URL P1']] || '') === urlP1;
+           String(r[idx['Suboperação']] || '').trim().toLowerCase() === suboperacao.toLowerCase();
   });
-  if (duplicate) throw new Error('URL duplicada na mesma operação/suboperação.');
+  if (duplicate) throw new Error('Já existe uma integração para esta operação e suboperação.');
   var rowValues = [
     payload.id || Utilities.getUuid(),
     operacao,
     suboperacao,
-    urlP1,
     String(payload.empresaId || '').trim(),
     String(payload.dominioId || '').trim(),
     String(payload.slugRota || '').trim(),
@@ -1118,7 +1127,7 @@ function calculateCpcDistribution(params) {
   var requestedSub = String(params.suboperacao || '').trim();
   var routeConfigs = listRouteApiConfigs();
   var routeByKey = {};
-  routeConfigs.forEach(function(rc){ routeByKey[rc.operacao + '||' + rc.suboperacao + '||' + rc.urlP1] = rc; });
+  routeConfigs.forEach(function(rc){ routeByKey[rc.operacao + '||' + rc.suboperacao] = rc; });
 
   var cfg = getConfig();
   var p1Entries = (cfg.rows || []).filter(function(r){ return String(r.parte || '').toUpperCase() === 'P1'; });
@@ -1189,8 +1198,8 @@ function calculateCpcDistribution(params) {
       var reasons = [];
       if (m.requests > 50 && m.revenue <= 0) reasons.push('Mais de 50 solicitações e receita zero');
       if (!isFinite(cpcCorrigido) || cpcCorrigido <= 0) reasons.push('CPC Corrigido inválido/zerado');
-      var route = routeByKey[group.operacao + '||' + group.suboperacao + '||' + url];
-      if (!route) reasons.push('Sem configuração de rota/API para URL');
+      var route = routeByKey[group.operacao + '||' + group.suboperacao];
+      if (!route) reasons.push('Sem configuração de rota/API para Operação + Suboperação');
       else if (!route.automacaoAtiva) reasons.push('Automação inativa para URL');
       return {
         operacao: group.operacao,

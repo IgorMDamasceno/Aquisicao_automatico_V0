@@ -101,7 +101,7 @@
           <svg class="w-6 h-6 text-sky-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.572a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg>
           Filtros
         </h2>
-        <div class="grid sm:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-7 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-400 mb-1">Pessoa</label>
             <div id="f-pessoa-select" class="relative">
@@ -118,6 +118,15 @@
                 <span id="f-operacao-summary" class="text-slate-300">— selecione —</span>
               </button>
               <div id="f-operacao-panel" class="hidden card rounded-xl p-3 z-50 flex flex-col shadow-2xl max-h-80"></div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-400 mb-1">Suboperação</label>
+            <div id="f-suboperacao-select" class="relative">
+              <button id="f-suboperacao-toggle" type="button" class="w-full pill rounded-lg px-3 py-2 text-left text-sm" aria-haspopup="true" aria-expanded="false" disabled>
+                <span id="f-suboperacao-summary" class="text-slate-300">— selecione —</span>
+              </button>
+              <div id="f-suboperacao-panel" class="hidden card rounded-xl p-3 z-50 flex flex-col shadow-2xl max-h-80"></div>
             </div>
           </div>
           <div class="lg:col-span-2">
@@ -202,7 +211,7 @@
       <div class="card rounded-2xl p-6">
         <h3 class="text-base font-bold text-slate-100 mb-3">Itens Configurados</h3>
         <div class="space-y-3 mb-4">
-          <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div class="grid sm:grid-cols-2 lg:grid-cols-6 gap-3">
             <div>
               <label class="block text-xs text-slate-400 mb-1">Pessoa</label>
               <select id="cfg-filter-pessoa" class="w-full pill rounded-lg px-3 py-2 text-sm">
@@ -212,6 +221,12 @@
             <div>
               <label class="block text-xs text-slate-400 mb-1">Operação</label>
               <select id="cfg-filter-operacao" class="w-full pill rounded-lg px-3 py-2 text-sm">
+                <option value="">Todas</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Suboperação</label>
+              <select id="cfg-filter-suboperacao" class="w-full pill rounded-lg px-3 py-2 text-sm">
                 <option value="">Todas</option>
               </select>
             </div>
@@ -284,9 +299,8 @@
         <h2 class="text-lg font-bold text-slate-100 mb-4">Configuração de Rotas/API</h2>
         <form id="form-rota" class="grid md:grid-cols-4 gap-3">
           <input type="hidden" id="rota-id">
-          <div><label class="block text-xs text-slate-400 mb-1">Operação</label><input id="rota-operacao" class="w-full pill rounded-lg px-3 py-2"></div>
-          <div><label class="block text-xs text-slate-400 mb-1">Suboperação</label><input id="rota-suboperacao" class="w-full pill rounded-lg px-3 py-2"></div>
-          <div><label class="block text-xs text-slate-400 mb-1">URL P1</label><input id="rota-url" class="w-full pill rounded-lg px-3 py-2"></div>
+          <div><label class="block text-xs text-slate-400 mb-1">Operação</label><select id="rota-operacao" class="w-full pill rounded-lg px-3 py-2"><option value="">Selecione</option></select></div>
+          <div><label class="block text-xs text-slate-400 mb-1">Suboperação</label><select id="rota-suboperacao" class="w-full pill rounded-lg px-3 py-2"><option value="">Selecione</option></select></div>
           <div><label class="block text-xs text-slate-400 mb-1">Empresa ID</label><input id="rota-empresa" class="w-full pill rounded-lg px-3 py-2"></div>
           <div><label class="block text-xs text-slate-400 mb-1">Domínio ID</label><input id="rota-dominio" class="w-full pill rounded-lg px-3 py-2"></div>
           <div><label class="block text-xs text-slate-400 mb-1">Slug da rota</label><input id="rota-slug" class="w-full pill rounded-lg px-3 py-2"></div>
@@ -295,7 +309,7 @@
         </form>
       </div>
       <div class="card rounded-2xl p-6 overflow-auto">
-        <table class="w-full text-sm"><thead class="text-slate-400"><tr><th class="text-left py-2 px-2">Operação</th><th class="text-left py-2 px-2">Suboperação</th><th class="text-left py-2 px-2">URL P1</th><th class="text-left py-2 px-2">Empresa ID</th><th class="text-left py-2 px-2">Domínio ID</th><th class="text-left py-2 px-2">Slug</th><th class="text-left py-2 px-2">Automação</th><th class="text-left py-2 px-2">Última sincronização</th><th class="text-left py-2 px-2">Ações</th></tr></thead><tbody id="rota-list"></tbody></table>
+        <table class="w-full text-sm"><thead class="text-slate-400"><tr><th class="text-left py-2 px-2">Operação</th><th class="text-left py-2 px-2">Suboperação</th><th class="text-left py-2 px-2">Empresa ID</th><th class="text-left py-2 px-2">Domínio ID</th><th class="text-left py-2 px-2">Slug</th><th class="text-left py-2 px-2">Automação</th><th class="text-left py-2 px-2">Última sincronização</th><th class="text-left py-2 px-2">Ações</th></tr></thead><tbody id="rota-list"></tbody></table>
       </div>
     </section>
 
@@ -1033,12 +1047,12 @@ function todayIso(){
         }
     }
 
-    var CFG = { rows: [], pessoas: [], opsByPessoa: {}, paginasByOp: {} };
+    var CFG = { rows: [], pessoas: [], opsByPessoa: {}, subsByOp: {}, paginasByOp: {}, paginasByOpSub: {} };
     var CFG_REDE_EMPTY_VALUE = '__empty__';
     var CFG_PARTE_ORDER = { Quiz: 0, P1: 1, P2: 2 };
     function createCfgListDefaults(){
       return {
-        filters: { pessoa: '', operacao: '', parte: '', rede: '', moeda: '' },
+        filters: { pessoa: '', operacao: '', suboperacao: '', parte: '', rede: '', moeda: '' },
         search: '',
         sortField: 'pessoa',
         sortDir: 'asc'
@@ -1054,6 +1068,7 @@ function todayIso(){
     // ADICIONADO: Novos estados para filtros de Pessoa e Operação
     var FILTRO_PESSOA = { options: [], selected: '', open: false, searchTerm: '', placeholder: '— selecione —' };
     var FILTRO_OPERACAO = { options: [], selected: '', open: false, searchTerm: '', placeholder: '— selecione —', disabled: true };
+    var FILTRO_SUBOPERACAO = { options: [], selected: '', open: false, searchTerm: '', placeholder: '— selecione —', disabled: true };
     var CHART = { inst: null };
     var COORD = { operations: [], operationMap: {}, cpcTargets: {}, loading: false, lastResponse: null };
     var CoordAccess = { granted: false, hash: '87402fdebedf4d5bf24d2f80aca3ae0197e8837d16a9c0155f366343c1f6a4bf', fallback: 'b10d26f7', pending: null, verifying: false };
@@ -1133,10 +1148,12 @@ function todayIso(){
           CFG.rows = Array.isArray(data.rows) ? data.rows.slice() : [];
           CFG.pessoas = Array.isArray(data.pessoas) ? data.pessoas.slice() : [];
           CFG.opsByPessoa = data.opsByPessoa || {};
+          CFG.subsByOp = data.subsByOp || {};
           CFG.paginasByOp = data.paginasByOp || {};
+          CFG.paginasByOpSub = data.paginasByOpSub || {};
           for (var key in data) {
             if (!data.hasOwnProperty(key)) continue;
-            if (key === 'rows' || key === 'pessoas' || key === 'opsByPessoa' || key === 'paginasByOp') continue;
+            if (key === 'rows' || key === 'pessoas' || key === 'opsByPessoa' || key === 'subsByOp' || key === 'paginasByOp' || key === 'paginasByOpSub') continue;
             CFG[key] = data[key];
           }
           fillPessoa(CFG.pessoas || []);
@@ -1169,7 +1186,15 @@ function todayIso(){
         }
         setCustomSelectDisabled('f-operacao', FILTRO_OPERACAO, !ops.length);
         updateCustomSelectSummary('f-operacao', FILTRO_OPERACAO);
-        if (!ops.length) FILTRO_OPERACAO.selected = '';
+
+        var subKey = pessoa + '||' + (FILTRO_OPERACAO.selected || '');
+        var subs = (CFG.subsByOp && FILTRO_OPERACAO.selected) ? (CFG.subsByOp[subKey] || []) : [];
+        FILTRO_SUBOPERACAO.options = (subs || []).slice();
+        if (FILTRO_SUBOPERACAO.selected && !FILTRO_SUBOPERACAO.options.includes(FILTRO_SUBOPERACAO.selected)) {
+          FILTRO_SUBOPERACAO.selected = '';
+        }
+        setCustomSelectDisabled('f-suboperacao', FILTRO_SUBOPERACAO, !subs.length);
+        updateCustomSelectSummary('f-suboperacao', FILTRO_SUBOPERACAO);
       }
 
       applyOperacoes(FILTRO_PESSOA.selected);
@@ -1238,6 +1263,7 @@ function todayIso(){
         // Fechar outros painéis abertos
         if (FILTRO_PESSOA.open && idPrefix !== 'f-pessoa') { FILTRO_PESSOA.open = false; byId('f-pessoa-panel').classList.add('hidden'); }
         if (FILTRO_OPERACAO.open && idPrefix !== 'f-operacao') { FILTRO_OPERACAO.open = false; byId('f-operacao-panel').classList.add('hidden'); }
+        if (FILTRO_SUBOPERACAO.open && idPrefix !== 'f-suboperacao') { FILTRO_SUBOPERACAO.open = false; byId('f-suboperacao-panel').classList.add('hidden'); }
         if (PQ.open && idPrefix !== 'pq') { PQ.open = false; byId('pq-panel').classList.add('hidden'); }
 
         model.open = true;
@@ -1423,6 +1449,7 @@ function todayIso(){
         // Fechar outros painéis abertos
         if (FILTRO_PESSOA.open) { FILTRO_PESSOA.open = false; byId('f-pessoa-panel').classList.add('hidden'); }
         if (FILTRO_OPERACAO.open) { FILTRO_OPERACAO.open = false; byId('f-operacao-panel').classList.add('hidden'); }
+        if (FILTRO_SUBOPERACAO.open) { FILTRO_SUBOPERACAO.open = false; byId('f-suboperacao-panel').classList.add('hidden'); }
         
         PQ.open = true;
         renderPQOptions();
@@ -1469,6 +1496,14 @@ function todayIso(){
             pnl = byId('f-operacao-panel');
             if (!((tgl && tgl.contains(evt.target)) || (pnl && pnl.contains(evt.target)))) {
                 FILTRO_OPERACAO.open = false;
+                if (pnl) pnl.classList.add('hidden');
+            }
+        }
+        if (FILTRO_SUBOPERACAO.open) {
+            tgl = byId('f-suboperacao-toggle');
+            pnl = byId('f-suboperacao-panel');
+            if (!((tgl && tgl.contains(evt.target)) || (pnl && pnl.contains(evt.target)))) {
+                FILTRO_SUBOPERACAO.open = false;
                 if (pnl) pnl.classList.add('hidden');
             }
         }
@@ -1600,6 +1635,7 @@ function todayIso(){
         var params = {
           pessoa: FILTRO_PESSOA.selected,
           operacao: FILTRO_OPERACAO.selected,
+          suboperacao: FILTRO_SUBOPERACAO.selected,
           paginasSelecionadas: PQ.selected.slice(),
           startDate: startValue || '',
           endDate: endValue || '',
@@ -2600,6 +2636,30 @@ function todayIso(){
       select.classList.toggle('opacity-50', disable);
     }
 
+
+    function updateCfgSuboperationFilterOptions(){
+      var select = byId('cfg-filter-suboperacao');
+      if (!select) return;
+      var filters = CFG_LIST_STATE.filters || {};
+      var pessoa = filters.pessoa || '';
+      var operacao = filters.operacao || '';
+      var subs = [];
+      if (pessoa && operacao && CFG.subsByOp) {
+        subs = (CFG.subsByOp[pessoa + '||' + operacao] || []).slice();
+      } else {
+        subs = (Array.isArray(CFG.rows) ? CFG.rows : []).map(function(row){ return row && row.suboperacao ? row.suboperacao : ''; });
+      }
+      subs = uniqueSortedStrings(subs.filter(function(v){ return v; }));
+      var current = filters.suboperacao || '';
+      if (current && subs.indexOf(current) === -1) current = '';
+      filters.suboperacao = current;
+      select.innerHTML = '<option value="">Todas</option>' + subs.map(function(sub){ return '<option value="'+escapeHtml(sub)+'">'+escapeHtml(sub)+'</option>'; }).join('');
+      select.value = current;
+      var disable = !!operacao && !subs.length;
+      select.disabled = disable;
+      select.classList.toggle('opacity-50', disable);
+    }
+
     function updateCfgFilterOptions(){
       var rows = Array.isArray(CFG.rows) ? CFG.rows : [];
       var pessoaSelect = byId('cfg-filter-pessoa');
@@ -2614,6 +2674,7 @@ function todayIso(){
       }
 
       updateCfgOperationFilterOptions();
+      updateCfgSuboperationFilterOptions();
 
       var parteSelect = byId('cfg-filter-parte');
       if (parteSelect && CFG_LIST_STATE.filters) {
@@ -2670,6 +2731,7 @@ function todayIso(){
       var value = '';
       switch(field){
         case 'operacao': value = row.operacao; break;
+        case 'suboperacao': value = row.suboperacao; break;
         case 'pagina': value = row.pagina; break;
         case 'parte':
           var parte = row.parte || '';
@@ -2719,6 +2781,7 @@ function todayIso(){
         if (!row) return false;
         if (filters.pessoa && row.pessoa !== filters.pessoa) return false;
         if (filters.operacao && row.operacao !== filters.operacao) return false;
+        if (filters.suboperacao && row.suboperacao !== filters.suboperacao) return false;
         if (filters.parte && row.parte !== filters.parte) return false;
         if (filters.rede) {
           if (filters.rede === CFG_REDE_EMPTY_VALUE) {
@@ -2727,7 +2790,7 @@ function todayIso(){
         }
         if (filters.moeda && String(row.moeda || '').toUpperCase() !== filters.moeda) return false;
         if (searchTerm) {
-          var haystack = [row.pessoa, row.operacao, row.pagina, row.parte, row.canal, (row.urls || []).join ? (row.urls || []).join(' ') : row.urls, row.rede, row.moeda]
+          var haystack = [row.pessoa, row.operacao, row.suboperacao, row.pagina, row.parte, row.canal, (row.urls || []).join ? (row.urls || []).join(' ') : row.urls, row.rede, row.moeda]
             .map(function(value){ return (value == null ? '' : String(value)).toLowerCase(); })
             .join(' ');
           if (haystack.indexOf(searchTerm) === -1) return false;
@@ -2763,7 +2826,9 @@ function todayIso(){
           if (!CFG_LIST_STATE.filters) CFG_LIST_STATE.filters = {};
           CFG_LIST_STATE.filters.pessoa = this.value || '';
           CFG_LIST_STATE.filters.operacao = '';
+          CFG_LIST_STATE.filters.suboperacao = '';
           updateCfgOperationFilterOptions();
+          updateCfgSuboperationFilterOptions();
           applyCfgFilters();
         });
       }
@@ -2773,6 +2838,17 @@ function todayIso(){
         operacaoSelect.addEventListener('change', function(){
           if (!CFG_LIST_STATE.filters) CFG_LIST_STATE.filters = {};
           CFG_LIST_STATE.filters.operacao = this.value || '';
+          CFG_LIST_STATE.filters.suboperacao = '';
+          updateCfgSuboperationFilterOptions();
+          applyCfgFilters();
+        });
+      }
+
+      var suboperacaoSelect = byId('cfg-filter-suboperacao');
+      if (suboperacaoSelect) {
+        suboperacaoSelect.addEventListener('change', function(){
+          if (!CFG_LIST_STATE.filters) CFG_LIST_STATE.filters = {};
+          CFG_LIST_STATE.filters.suboperacao = this.value || '';
           applyCfgFilters();
         });
       }
@@ -2895,7 +2971,7 @@ function todayIso(){
       var tb = byId('rota-list');
       if (!tb) return;
       if (!rows || !rows.length) {
-        tb.innerHTML = '<tr><td colspan="9" class="py-3 px-2 text-slate-400">Nenhuma integração cadastrada.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="8" class="py-3 px-2 text-slate-400">Nenhuma integração cadastrada.</td></tr>';
         return;
       }
       tb.innerHTML = rows.map(function(r){
@@ -2903,7 +2979,6 @@ function todayIso(){
         return '<tr class="border-t border-slate-700/60">'
           + '<td class="py-2 px-2">'+escapeHtml(r.operacao||'')+'</td>'
           + '<td class="py-2 px-2">'+escapeHtml(r.suboperacao||'')+'</td>'
-          + '<td class="py-2 px-2 mono text-xs">'+escapeHtml(r.urlP1||'')+'</td>'
           + '<td class="py-2 px-2">'+escapeHtml(r.empresaId||'')+'</td>'
           + '<td class="py-2 px-2">'+escapeHtml(r.dominioId||'')+'</td>'
           + '<td class="py-2 px-2">'+escapeHtml(r.slugRota||'')+'</td>'
@@ -2924,7 +2999,37 @@ function todayIso(){
       });
     }
 
+
+    function populateRouteOperationSuboperationOptions(){
+      google.script.run.withSuccessHandler(function(res){
+        var ops = (res && res.operations) ? res.operations : [];
+        var opSelect = byId('rota-operacao');
+        var subSelect = byId('rota-suboperacao');
+        if (!opSelect || !subSelect) return;
+
+        var selectedOp = opSelect.value || '';
+        var selectedSub = subSelect.value || '';
+        opSelect.innerHTML = '<option value="">Selecione</option>' + ops.map(function(item){ return '<option value="'+escapeHtml(item.operacao)+'">'+escapeHtml(item.operacao)+'</option>'; }).join('');
+        if (selectedOp) opSelect.value = selectedOp;
+
+        function refreshSub(){
+          var currentOp = opSelect.value || '';
+          var found = ops.find(function(item){ return item.operacao === currentOp; });
+          var subs = found ? (found.suboperacoes || []) : [];
+          subSelect.innerHTML = '<option value="">Selecione</option>' + subs.map(function(sub){ return '<option value="'+escapeHtml(sub)+'">'+escapeHtml(sub)+'</option>'; }).join('');
+          if (selectedSub && subs.indexOf(selectedSub) !== -1) subSelect.value = selectedSub;
+        }
+
+        opSelect.onchange = function(){
+          selectedSub = '';
+          refreshSub();
+        };
+        refreshSub();
+      }).listOperationsSuboperations();
+    }
+
     function loadRouteConfigs(){
+      populateRouteOperationSuboperationOptions();
       google.script.run.withSuccessHandler(function(rows){ ROUTE_STATE.rows = rows || []; renderRouteConfigs(ROUTE_STATE.rows); }).listRouteApiConfigs();
     }
 
@@ -2934,7 +3039,6 @@ function todayIso(){
       byId('rota-id').value = row.id || '';
       byId('rota-operacao').value = row.operacao || '';
       byId('rota-suboperacao').value = row.suboperacao || '';
-      byId('rota-url').value = row.urlP1 || '';
       byId('rota-empresa').value = row.empresaId || '';
       byId('rota-dominio').value = row.dominioId || '';
       byId('rota-slug').value = row.slugRota || '';
@@ -2952,7 +3056,7 @@ function todayIso(){
       byId('btn-rota-limpar').onclick = function(){ form.reset(); byId('rota-id').value=''; byId('rota-ativa').value='sim'; };
       form.onsubmit = function(ev){
         ev.preventDefault();
-        var payload = { id: byId('rota-id').value || '', operacao: (byId('rota-operacao').value||'').trim(), suboperacao: (byId('rota-suboperacao').value||'').trim(), urlP1: (byId('rota-url').value||'').trim(), empresaId: (byId('rota-empresa').value||'').trim(), dominioId: (byId('rota-dominio').value||'').trim(), slugRota: (byId('rota-slug').value||'').trim(), automacaoAtiva: byId('rota-ativa').value === 'sim' };
+        var payload = { id: byId('rota-id').value || '', operacao: (byId('rota-operacao').value||'').trim(), suboperacao: (byId('rota-suboperacao').value||'').trim(), empresaId: (byId('rota-empresa').value||'').trim(), dominioId: (byId('rota-dominio').value||'').trim(), slugRota: (byId('rota-slug').value||'').trim(), automacaoAtiva: byId('rota-ativa').value === 'sim' };
         google.script.run.withSuccessHandler(function(){ byId('btn-rota-limpar').click(); loadRouteConfigs(); showToast('Configuração de rota salva.', 'success'); }).withFailureHandler(function(err){ showToast(err && err.message ? err.message : 'Falha ao salvar rota.', 'error'); }).saveRouteApiConfig(payload);
       };
     }
@@ -3002,13 +3106,28 @@ function todayIso(){
             FILTRO_OPERACAO.searchTerm = '';
             setCustomSelectDisabled('f-operacao', FILTRO_OPERACAO, !ops.length);
             updateCustomSelectSummary('f-operacao', FILTRO_OPERACAO);
+            FILTRO_SUBOPERACAO.options = [];
+            FILTRO_SUBOPERACAO.selected = '';
+            setCustomSelectDisabled('f-suboperacao', FILTRO_SUBOPERACAO, true);
+            updateCustomSelectSummary('f-suboperacao', FILTRO_SUBOPERACAO);
             resetPQ(); // Reseta páginas
         });
         
         wireCustomSelect('f-operacao', FILTRO_OPERACAO, function(operacao) {
             // Callback "onchange" para Operação
-            var key = FILTRO_PESSOA.selected + '||' + operacao;
-            var pags = (CFG.paginasByOp && CFG.paginasByOp[key]) ? CFG.paginasByOp[key] : [];
+            var subKey = FILTRO_PESSOA.selected + '||' + operacao;
+            var subs = (CFG.subsByOp && subKey) ? (CFG.subsByOp[subKey] || []) : [];
+            FILTRO_SUBOPERACAO.options = (subs || []).slice();
+            FILTRO_SUBOPERACAO.selected = '';
+            setCustomSelectDisabled('f-suboperacao', FILTRO_SUBOPERACAO, !subs.length);
+            updateCustomSelectSummary('f-suboperacao', FILTRO_SUBOPERACAO);
+            var pags = (CFG.paginasByOp && subKey) ? (CFG.paginasByOp[subKey] || []) : [];
+            setPQOptions(pags);
+        });
+
+        wireCustomSelect('f-suboperacao', FILTRO_SUBOPERACAO, function(suboperacao) {
+            var key = FILTRO_PESSOA.selected + '||' + FILTRO_OPERACAO.selected + '||' + suboperacao;
+            var pags = (CFG.paginasByOpSub && key) ? (CFG.paginasByOpSub[key] || []) : [];
             setPQOptions(pags);
         });
         // FIM ADIÇÃO
