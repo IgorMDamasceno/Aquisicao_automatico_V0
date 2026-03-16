@@ -1123,29 +1123,51 @@ function listOperationsSuboperations() {
 
 function calculateCpcDistribution(params) {
   params = params || {};
+
+  function normText_(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+  function keyFor_(operacao, suboperacao) {
+    return normText_(operacao) + '||' + normText_(suboperacao);
+  }
+
   var requestedOp = String(params.operacao || '').trim();
   var requestedSub = String(params.suboperacao || '').trim();
-  var routeConfigs = listRouteApiConfigs().filter(function(rc){
-    if (requestedOp && rc.operacao !== requestedOp) return false;
-    if (requestedSub && rc.suboperacao !== requestedSub) return false;
+  var requestedOpNorm = normText_(requestedOp);
+  var requestedSubNorm = normText_(requestedSub);
+
+  var allRouteConfigs = listRouteApiConfigs();
+  var routeConfigs = allRouteConfigs.filter(function(rc){
+    var opNorm = normText_(rc.operacao);
+    var subNorm = normText_(rc.suboperacao);
+    if (requestedOpNorm && opNorm !== requestedOpNorm) return false;
+    if (requestedSubNorm && subNorm !== requestedSubNorm) return false;
     return true;
   });
 
   var cfg = getConfig();
-  var p1Entries = (cfg.rows || []).filter(function(r){
-    if (String(r.parte || '').toUpperCase() !== 'P1') return false;
-    if (requestedOp && r.operacao !== requestedOp) return false;
-    if (requestedSub && r.suboperacao !== requestedSub) return false;
+  var allP1Entries = (cfg.rows || []).filter(function(r){ return String(r.parte || '').toUpperCase() === 'P1'; });
+  var p1Entries = allP1Entries.filter(function(r){
+    var opNorm = normText_(r.operacao);
+    var subNorm = normText_(r.suboperacao);
+    if (requestedOpNorm && opNorm !== requestedOpNorm) return false;
+    if (requestedSubNorm && subNorm !== requestedSubNorm) return false;
     return true;
   });
 
   var routeByKey = {};
-  routeConfigs.forEach(function(rc){ routeByKey[rc.operacao + '||' + rc.suboperacao] = rc; });
+  var groupLabelByKey = {};
+  routeConfigs.forEach(function(rc){
+    var key = keyFor_(rc.operacao, rc.suboperacao);
+    routeByKey[key] = rc;
+    if (!groupLabelByKey[key]) groupLabelByKey[key] = { operacao: rc.operacao || '', suboperacao: rc.suboperacao || '' };
+  });
 
   var localUrlsByGroup = {};
   p1Entries.forEach(function(entry){
-    var key = String(entry.operacao || '').trim() + '||' + String(entry.suboperacao || '').trim();
+    var key = keyFor_(entry.operacao, entry.suboperacao);
     if (!localUrlsByGroup[key]) localUrlsByGroup[key] = {};
+    if (!groupLabelByKey[key]) groupLabelByKey[key] = { operacao: entry.operacao || '', suboperacao: entry.suboperacao || '' };
     (entry.urls || []).forEach(function(u){
       var normalized = normUrlStrict_(u);
       if (normalized) localUrlsByGroup[key][normalized] = true;
@@ -1162,7 +1184,7 @@ function calculateCpcDistribution(params) {
   }
 
   routeConfigs.forEach(function(rc){
-    var groupKey = rc.operacao + '||' + rc.suboperacao;
+    var groupKey = keyFor_(rc.operacao, rc.suboperacao);
     if (!routeUrlsByGroup[groupKey]) routeUrlsByGroup[groupKey] = {};
     if (!routeCurrentPctByGroup[groupKey]) routeCurrentPctByGroup[groupKey] = {};
 
@@ -1193,28 +1215,25 @@ function calculateCpcDistribution(params) {
 
   var groupsMap = {};
 
-  Object.keys(localUrlsByGroup).forEach(function(groupKey){
+  function ensureGroup_(groupKey){
     if (!groupsMap[groupKey]) {
-      var parts = groupKey.split('||');
-      groupsMap[groupKey] = { operacao: parts[0] || '', suboperacao: parts[1] || '', urls: {} };
+      var label = groupLabelByKey[groupKey] || { operacao: '', suboperacao: '' };
+      groupsMap[groupKey] = { operacao: label.operacao || '', suboperacao: label.suboperacao || '', urls: {} };
     }
-    Object.keys(localUrlsByGroup[groupKey]).forEach(function(url){ groupsMap[groupKey].urls[url] = true; });
+    return groupsMap[groupKey];
+  }
+
+  Object.keys(localUrlsByGroup).forEach(function(groupKey){
+    var group = ensureGroup_(groupKey);
+    Object.keys(localUrlsByGroup[groupKey]).forEach(function(url){ group.urls[url] = true; });
   });
 
   Object.keys(routeUrlsByGroup).forEach(function(groupKey){
-    if (!groupsMap[groupKey]) {
-      var parts = groupKey.split('||');
-      groupsMap[groupKey] = { operacao: parts[0] || '', suboperacao: parts[1] || '', urls: {} };
-    }
-    Object.keys(routeUrlsByGroup[groupKey]).forEach(function(url){ groupsMap[groupKey].urls[url] = true; });
+    var group = ensureGroup_(groupKey);
+    Object.keys(routeUrlsByGroup[groupKey]).forEach(function(url){ group.urls[url] = true; });
   });
 
-  Object.keys(routeByKey).forEach(function(groupKey){
-    if (!groupsMap[groupKey]) {
-      var parts = groupKey.split('||');
-      groupsMap[groupKey] = { operacao: parts[0] || '', suboperacao: parts[1] || '', urls: {} };
-    }
-  });
+  Object.keys(routeByKey).forEach(function(groupKey){ ensureGroup_(groupKey); });
 
   var metricsByGroup = {};
   Object.keys(groupsMap).forEach(function(groupKey){
@@ -1335,7 +1354,14 @@ function calculateCpcDistribution(params) {
     return String(a.suboperacao || '').localeCompare(String(b.suboperacao || ''), 'pt-BR');
   });
 
-  return { groups: resultGroups, generatedAt: new Date() };
+  var diagnostics = {
+    filtros: { operacao: requestedOp, suboperacao: requestedSub },
+    routeConfigsEncontradas: routeConfigs.length,
+    p1LocaisEncontradas: p1Entries.length,
+    gruposGerados: resultGroups.length
+  };
+
+  return { groups: resultGroups, generatedAt: new Date(), diagnostics: diagnostics };
 }
 
 function fetchRouteSnapshot_(config) {

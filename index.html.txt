@@ -3094,7 +3094,15 @@ function todayIso(){
         var container = byId('dist-summary');
         if (!container) return;
         var groups = (res && res.groups) ? res.groups : [];
-        if (!groups.length) { container.innerHTML = '<div class="card rounded-2xl p-6 text-slate-400">Nenhuma suboperação com URLs P1 elegíveis.</div>'; return; }
+        if (!groups.length) {
+          var diag = (res && res.diagnostics) ? res.diagnostics : {};
+          var filtros = diag.filtros || {};
+          var detalhe = 'Filtros => Operação: ' + escapeHtml(String(filtros.operacao || '')) + ' | Suboperação: ' + escapeHtml(String(filtros.suboperacao || ''))
+            + '<br>Configurações de rota encontradas: ' + escapeHtml(String(diag.routeConfigsEncontradas || 0))
+            + ' | Entradas P1 locais encontradas: ' + escapeHtml(String(diag.p1LocaisEncontradas || 0));
+          container.innerHTML = '<div class="card rounded-2xl p-6 text-slate-400">Nenhuma suboperação com URLs P1 elegíveis.<br><span class="text-xs">' + detalhe + '</span></div>';
+          return;
+        }
         container.innerHTML = groups.map(function(g){
           var rows = (g.urls || []).map(function(u){
             var warn = (u.exclusionReasons||[]).join('; ');
