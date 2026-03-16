@@ -989,6 +989,7 @@ const DISTRIBUTION_HISTORY_SHEET = 'Historico - Distribuicao';
 const DISTRIBUTION_WARNINGS_SHEET = 'Avisos - Distribuicao';
 const AUTOMATION_HANDLER = 'runHourlyAutomationSync';
 const DISTRIBUTION_DEFAULT_LIMITS = { minPercent: 0, maxPercent: 100 };
+const LINK_ROUTER_BASE_URL_DEFAULT = 'https://rotasv2.spun.com.br';
 
 function ensureRouteConfigSheet_() {
   var ss = SpreadsheetApp.getActive();
@@ -1356,7 +1357,10 @@ function calculateCpcDistribution(params) {
 
   var diagnostics = {
     filtros: { operacao: requestedOp, suboperacao: requestedSub },
+    routeApi: getRouteApiHealth(),
+    routeConfigsTotais: allRouteConfigs.length,
     routeConfigsEncontradas: routeConfigs.length,
+    p1LocaisTotais: allP1Entries.length,
     p1LocaisEncontradas: p1Entries.length,
     gruposGerados: resultGroups.length
   };
@@ -1364,36 +1368,95 @@ function calculateCpcDistribution(params) {
   return { groups: resultGroups, generatedAt: new Date(), diagnostics: diagnostics };
 }
 
-function fetchRouteSnapshot_(config) {
-  var baseUrl = PropertiesService.getScriptProperties().getProperty('ROUTER_API_BASE_URL');
-  var token = PropertiesService.getScriptProperties().getProperty('ROUTER_API_TOKEN');
-  if (!baseUrl || !token) return { ok: false, message: 'Defina ROUTER_API_BASE_URL e ROUTER_API_TOKEN nas propriedades do script.' };
-  var endpoint = baseUrl.replace(/\/+$/,'') + '/api/link_router/route?company_id=' + encodeURIComponent(config.empresaId) + '&domain_id=' + encodeURIComponent(config.dominioId) + '&slug=' + encodeURIComponent(config.slugRota);
-  var resp = UrlFetchApp.fetch(endpoint, { method: 'get', headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
+function getRouteApiSettings_() {
+  var scriptProps = PropertiesService.getScriptProperties();
+  var baseUrl = String(
+    scriptProps.getProperty('ROUTER_API_BASE_URL') ||
+    scriptProps.getProperty('LINK_ROUTER_BASE_URL') ||
+    LINK_ROUTER_BASE_URL_DEFAULT || ''
+  ).trim().replace(/\/+$/, '');
+  var token = String(
+    scriptProps.getProperty('ROUTER_API_TOKEN') ||
+    scriptProps.getProperty('LINK_ROUTER_TOKEN') ||
+    ''
+  ).trim();
+  if (/^Bearer\s+/i.test(token)) token = token.replace(/^Bearer\s+/i, '');
+  return { baseUrl: baseUrl, token: token, configured: !!(baseUrl && token) };
+}
+
+function callRouteApi_(path, method, qs, payload) {
+  var settings = getRouteApiSettings_();
+  if (!settings.configured) {
+    return { ok: false, code: 0, body: { status: 'error', message: 'Defina ROUTER_API_TOKEN (ou LINK_ROUTER_TOKEN) nas propriedades do script.' }, settings: settings };
+  }
+
+  var url = settings.baseUrl + path;
+  if (qs && Object.keys(qs).length) {
+    var query = Object.keys(qs).filter(function(key){
+      var value = qs[key];
+      return value !== null && value !== undefined && value !== '';
+    }).map(function(key){
+      return encodeURIComponent(key) + '=' + encodeURIComponent(String(qs[key]));
+    }).join('&');
+    if (query) url += (url.indexOf('?') >= 0 ? '&' : '?') + query;
+  }
+
+  var options = {
+    method: String(method || 'get').toUpperCase(),
+    muteHttpExceptions: true,
+    headers: {
+      Authorization: 'Bearer ' + settings.token,
+      'Content-Type': 'application/json'
+    }
+  };
+  if (payload) {
+    options.payload = JSON.stringify(payload);
+    options.contentType = 'application/json';
+  }
+
+  var resp;
+  try {
+    resp = UrlFetchApp.fetch(url, options);
+  } catch (err) {
+    return { ok: false, code: 0, body: { status: 'error', message: err && err.message ? err.message : String(err) }, settings: settings };
+  }
+
   var code = resp.getResponseCode();
+  var text = resp.getContentText() || '';
   var body = {};
-  try { body = JSON.parse(resp.getContentText() || '{}'); } catch (e) {}
-  return { ok: code >= 200 && code < 300, code: code, body: body, raw: resp.getContentText() };
+  try { body = text ? JSON.parse(text) : {}; }
+  catch (err) { body = { status: 'error', message: text || 'Resposta inválida da API.' }; }
+
+  return { ok: code >= 200 && code < 300, code: code, body: body, raw: text, settings: settings };
+}
+
+function fetchRouteSnapshot_(config) {
+  var params = {
+    company_id: config.empresaId,
+    domain: config.dominioId,
+    slug: config.slugRota
+  };
+  return callRouteApi_('/api/link_router/route', 'get', params, null);
 }
 
 function pushRoutePercentages_(config, links) {
-  var baseUrl = PropertiesService.getScriptProperties().getProperty('ROUTER_API_BASE_URL');
-  var token = PropertiesService.getScriptProperties().getProperty('ROUTER_API_TOKEN');
-  var endpoint = baseUrl.replace(/\/+$/,'') + '/api/link_router/links_and_percentage';
   var payload = {
     domain: Number(config.dominioId),
     company_id: Number(config.empresaId),
     route: config.slugRota,
     links: links
   };
-  var resp = UrlFetchApp.fetch(endpoint, {
-    method: 'put',
-    contentType: 'application/json',
-    headers: { Authorization: 'Bearer ' + token },
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  });
-  return { code: resp.getResponseCode(), text: resp.getContentText() };
+  var resp = callRouteApi_('/api/link_router/links_and_percentage', 'put', null, payload);
+  return { code: resp.code, text: resp.raw || JSON.stringify(resp.body || {}), ok: resp.ok, body: resp.body || {} };
+}
+
+function getRouteApiHealth() {
+  var settings = getRouteApiSettings_();
+  return {
+    configured: settings.configured,
+    baseUrl: settings.baseUrl,
+    tokenConfigured: !!settings.token
+  };
 }
 
 function syncCpcDistributionNow(params) {

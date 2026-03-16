@@ -3097,9 +3097,12 @@ function todayIso(){
         if (!groups.length) {
           var diag = (res && res.diagnostics) ? res.diagnostics : {};
           var filtros = diag.filtros || {};
+          var routeApi = diag.routeApi || {};
           var detalhe = 'Filtros => Operação: ' + escapeHtml(String(filtros.operacao || '')) + ' | Suboperação: ' + escapeHtml(String(filtros.suboperacao || ''))
-            + '<br>Configurações de rota encontradas: ' + escapeHtml(String(diag.routeConfigsEncontradas || 0))
-            + ' | Entradas P1 locais encontradas: ' + escapeHtml(String(diag.p1LocaisEncontradas || 0));
+            + '<br>API rota configurada: ' + (routeApi.configured ? 'Sim' : 'Não')
+            + ' | Base URL: ' + escapeHtml(String(routeApi.baseUrl || ''))
+            + '<br>Configurações de rota encontradas: ' + escapeHtml(String(diag.routeConfigsEncontradas || 0)) + ' (total: ' + escapeHtml(String(diag.routeConfigsTotais || 0)) + ')'
+            + ' | Entradas P1 locais encontradas: ' + escapeHtml(String(diag.p1LocaisEncontradas || 0)) + ' (total: ' + escapeHtml(String(diag.p1LocaisTotais || 0)) + ')';
           container.innerHTML = '<div class="card rounded-2xl p-6 text-slate-400">Nenhuma suboperação com URLs P1 elegíveis.<br><span class="text-xs">' + detalhe + '</span></div>';
           return;
         }
