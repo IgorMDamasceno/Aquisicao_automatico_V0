@@ -1002,8 +1002,19 @@ function ensureRouteConfigSheet_() {
     sh.setFrozenRows(1);
     return sh;
   }
+
   var maxCol = Math.max(headers.length, sh.getLastColumn());
   var current = sh.getRange(1,1,1,maxCol).getValues()[0];
+
+  // Migração legado: versão antiga possuía coluna "URL P1".
+  // Remove essa coluna para manter alinhamento correto dos dados.
+  var urlP1LegacyIndex = current.indexOf('URL P1');
+  if (urlP1LegacyIndex >= 0) {
+    sh.deleteColumn(urlP1LegacyIndex + 1);
+    maxCol = Math.max(headers.length, sh.getLastColumn());
+    current = sh.getRange(1,1,1,maxCol).getValues()[0];
+  }
+
   var needs = false;
   headers.forEach(function(h, i){ if (current[i] !== h) needs = true; });
   if (needs) sh.getRange(1,1,1,headers.length).setValues([headers]);
