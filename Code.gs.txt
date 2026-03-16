@@ -989,7 +989,8 @@ const DISTRIBUTION_HISTORY_SHEET = 'Historico - Distribuicao';
 const DISTRIBUTION_WARNINGS_SHEET = 'Avisos - Distribuicao';
 const AUTOMATION_HANDLER = 'runHourlyAutomationSync';
 const DISTRIBUTION_DEFAULT_LIMITS = { minPercent: 0, maxPercent: 100 };
-const LINK_ROUTER_BASE_URL_DEFAULT = 'https://rotasv2.spun.com.br';
+const LINK_ROUTER_BASE_URL = 'https://rotasv2.spun.com.br';
+const LINK_ROUTER_TOKEN = '1|crewZvM3pCrHsz9gwWVfzyzQ5IrTk0T7gltREA4d67dc7105';
 
 function ensureRouteConfigSheet_() {
   var ss = SpreadsheetApp.getActive();
@@ -1369,25 +1370,28 @@ function calculateCpcDistribution(params) {
 }
 
 function getRouteApiSettings_() {
-  var scriptProps = PropertiesService.getScriptProperties();
-  var baseUrl = String(
-    scriptProps.getProperty('ROUTER_API_BASE_URL') ||
-    scriptProps.getProperty('LINK_ROUTER_BASE_URL') ||
-    LINK_ROUTER_BASE_URL_DEFAULT || ''
-  ).trim().replace(/\/+$/, '');
-  var token = String(
-    scriptProps.getProperty('ROUTER_API_TOKEN') ||
-    scriptProps.getProperty('LINK_ROUTER_TOKEN') ||
-    ''
-  ).trim();
-  if (/^Bearer\s+/i.test(token)) token = token.replace(/^Bearer\s+/i, '');
+  var baseUrl = String(LINK_ROUTER_BASE_URL || '').trim().replace(/\/+$/, '');
+  var token = getRouteApiToken_();
   return { baseUrl: baseUrl, token: token, configured: !!(baseUrl && token) };
+}
+
+function getRouteApiToken_() {
+  var token = String(LINK_ROUTER_TOKEN || '').trim();
+  if (/^Bearer\s+/i.test(token)) token = token.replace(/^Bearer\s+/i, '');
+  return token;
+}
+
+function buildRouteApiHeaders_() {
+  return {
+    Authorization: 'Bearer ' + getRouteApiToken_(),
+    'Content-Type': 'application/json'
+  };
 }
 
 function callRouteApi_(path, method, qs, payload) {
   var settings = getRouteApiSettings_();
   if (!settings.configured) {
-    return { ok: false, code: 0, body: { status: 'error', message: 'Defina ROUTER_API_TOKEN (ou LINK_ROUTER_TOKEN) nas propriedades do script.' }, settings: settings };
+    return { ok: false, code: 0, body: { status: 'error', message: 'Integração da API de rotas não configurada.' }, settings: settings };
   }
 
   var url = settings.baseUrl + path;
@@ -1404,10 +1408,7 @@ function callRouteApi_(path, method, qs, payload) {
   var options = {
     method: String(method || 'get').toUpperCase(),
     muteHttpExceptions: true,
-    headers: {
-      Authorization: 'Bearer ' + settings.token,
-      'Content-Type': 'application/json'
-    }
+    headers: buildRouteApiHeaders_()
   };
   if (payload) {
     options.payload = JSON.stringify(payload);
@@ -1429,6 +1430,7 @@ function callRouteApi_(path, method, qs, payload) {
 
   return { ok: code >= 200 && code < 300, code: code, body: body, raw: text, settings: settings };
 }
+
 
 function fetchRouteSnapshot_(config) {
   var params = {
