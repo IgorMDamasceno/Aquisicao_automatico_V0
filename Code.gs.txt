@@ -1410,12 +1410,14 @@ function callRouteApi_(path, method, qs, payload) {
     muteHttpExceptions: true,
     headers: buildRouteApiHeaders_()
   };
+  var safeHeaders = { Authorization: settings.token ? 'Bearer ***' : '', 'Content-Type': 'application/json' };
   if (payload) {
     options.payload = JSON.stringify(payload);
     options.contentType = 'application/json';
   }
 
   var resp;
+  Logger.log('[RouteAPI] Request => ' + JSON.stringify({ url: url, method: options.method, headers: safeHeaders, hasPayload: !!payload }));
   try {
     resp = UrlFetchApp.fetch(url, options);
   } catch (err) {
@@ -1424,6 +1426,7 @@ function callRouteApi_(path, method, qs, payload) {
 
   var code = resp.getResponseCode();
   var text = resp.getContentText() || '';
+  Logger.log('[RouteAPI] Response => ' + JSON.stringify({ url: url, code: code, bodyPreview: text.slice(0, 800) }));
   var body = {};
   try { body = text ? JSON.parse(text) : {}; }
   catch (err) { body = { status: 'error', message: text || 'Resposta inválida da API.' }; }
@@ -1431,6 +1434,32 @@ function callRouteApi_(path, method, qs, payload) {
   return { ok: code >= 200 && code < 300, code: code, body: body, raw: text, settings: settings };
 }
 
+
+
+function testRouteApiConnection(payload) {
+  payload = payload || {};
+  var companyId = String(payload.empresaId || '').trim();
+  var domainId = String(payload.dominioId || '').trim();
+  var slug = String(payload.slugRota || '').trim();
+  var settings = getRouteApiSettings_();
+  if (!companyId || !domainId || !slug) {
+    return {
+      ok: false,
+      message: 'Informe Empresa ID, Domínio ID e Slug para testar.',
+      request: { company_id: companyId, domain: domainId, slug: slug },
+      settings: { configured: settings.configured, baseUrl: settings.baseUrl, tokenConfigured: !!settings.token }
+    };
+  }
+  var response = callRouteApi_('/api/link_router/route', 'get', { company_id: companyId, domain: domainId, slug: slug }, null);
+  return {
+    ok: response.ok,
+    code: response.code,
+    request: { company_id: companyId, domain: domainId, slug: slug },
+    settings: { configured: settings.configured, baseUrl: settings.baseUrl, tokenConfigured: !!settings.token },
+    responseBody: response.body || {},
+    rawPreview: String(response.raw || '').slice(0, 2000)
+  };
+}
 
 function fetchRouteSnapshot_(config) {
   var params = {

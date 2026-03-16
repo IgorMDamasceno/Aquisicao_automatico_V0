@@ -219,6 +219,7 @@
           </div>
           <div class="md:col-span-4 flex gap-2"><button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl" id="btn-salvar">Salvar</button><button type="button" class="pill px-4 py-2 rounded-xl" id="btn-limpar">Limpar</button></div>
         </form>
+        <pre id="rota-test-output" class="mt-3 text-xs text-slate-300 whitespace-pre-wrap bg-slate-900/60 border border-slate-700 rounded-lg p-3 hidden"></pre>
       </div>
       <div class="card rounded-2xl p-6">
         <h3 class="text-base font-bold text-slate-100 mb-3">Itens Configurados</h3>
@@ -317,7 +318,7 @@
           <div><label class="block text-xs text-slate-400 mb-1">Domínio ID</label><input id="rota-dominio" class="w-full pill rounded-lg px-3 py-2"></div>
           <div><label class="block text-xs text-slate-400 mb-1">Slug da rota</label><input id="rota-slug" class="w-full pill rounded-lg px-3 py-2"></div>
           <div><label class="block text-xs text-slate-400 mb-1">Automação ativa?</label><select id="rota-ativa" class="w-full pill rounded-lg px-3 py-2"><option value="sim">Sim</option><option value="nao">Não</option></select></div>
-          <div class="flex items-end gap-2"><button class="bg-blue-600 px-4 py-2 rounded-xl text-white font-semibold" type="submit">Salvar</button><button class="pill px-4 py-2 rounded-xl" type="button" id="btn-rota-limpar">Limpar</button></div>
+          <div class="flex items-end gap-2"><button class="bg-blue-600 px-4 py-2 rounded-xl text-white font-semibold" type="submit">Salvar</button><button class="pill px-4 py-2 rounded-xl" type="button" id="btn-rota-limpar">Limpar</button><button class="pill px-4 py-2 rounded-xl" type="button" id="btn-rota-test">Testar API</button></div>
         </form>
       </div>
       <div class="card rounded-2xl p-6 overflow-auto">
@@ -3077,6 +3078,22 @@ function todayIso(){
         ev.preventDefault();
         var payload = { id: byId('rota-id').value || '', operacao: (byId('rota-operacao').value||'').trim(), suboperacao: (byId('rota-suboperacao').value||'').trim(), empresaId: (byId('rota-empresa').value||'').trim(), dominioId: (byId('rota-dominio').value||'').trim(), slugRota: (byId('rota-slug').value||'').trim(), automacaoAtiva: byId('rota-ativa').value === 'sim' };
         google.script.run.withSuccessHandler(function(){ byId('btn-rota-limpar').click(); loadRouteConfigs(); showToast('Configuração de rota salva.', 'success'); }).withFailureHandler(function(err){ showToast(err && err.message ? err.message : 'Falha ao salvar rota.', 'error'); }).saveRouteApiConfig(payload);
+      };
+
+      var testBtn = byId('btn-rota-test');
+      if (testBtn) testBtn.onclick = function(){
+        var out = byId('rota-test-output');
+        var payload = { empresaId: (byId('rota-empresa').value||'').trim(), dominioId: (byId('rota-dominio').value||'').trim(), slugRota: (byId('rota-slug').value||'').trim() };
+        if (out) { out.classList.remove('hidden'); out.textContent = 'Testando conexão com API de rota...'; }
+        google.script.run.withSuccessHandler(function(res){
+          if (out) out.textContent = JSON.stringify(res, null, 2);
+          try { console.log('[RouteAPI][TEST]', res); } catch (e) {}
+          showToast(res && res.ok ? 'Teste de API concluído com sucesso.' : 'Teste de API retornou alerta/erro.', res && res.ok ? 'success' : 'info');
+        }).withFailureHandler(function(err){
+          var message = err && err.message ? err.message : 'Falha ao testar API.';
+          if (out) out.textContent = 'Erro: ' + message;
+          showToast(message, 'error');
+        }).testRouteApiConnection(payload);
       };
     }
 
