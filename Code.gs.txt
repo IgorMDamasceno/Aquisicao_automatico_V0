@@ -1441,12 +1441,13 @@ function fetchRouteSnapshot_(config) {
   return callRouteApi_('/api/link_router/route', 'get', params, null);
 }
 
-function pushRoutePercentages_(config, links) {
+function pushRoutePercentages_(config, linkMap, pctMap) {
   var payload = {
     domain: Number(config.dominioId),
     company_id: Number(config.empresaId),
-    route: config.slugRota,
-    links: links
+    slug: config.slugRota,
+    link: linkMap || {},
+    percentage: pctMap || {}
   };
   var resp = callRouteApi_('/api/link_router/links_and_percentage', 'put', null, payload);
   return { code: resp.code, text: resp.raw || JSON.stringify(resp.body || {}), ok: resp.ok, body: resp.body || {} };
@@ -1485,34 +1486,79 @@ function syncCpcDistributionNow(params) {
         });
         return;
       }
+
       var routeLinks = (((routeResponse.body || {}).data || {}).links || []);
       var routeByNorm = {};
-      routeLinks.forEach(function(link){ routeByNorm[normUrlStrict_(link.url || link.link || '')] = link; });
+      routeLinks.forEach(function(link){
+        var norm = normUrlStrict_(link.url || link.link || link.destination_url || '');
+        if (norm) routeByNorm[norm] = link;
+      });
 
-      var updates = [];
+      var linkMap = {};
+      var pctMap = {};
+      var matchedAny = false;
+
+      routeLinks.forEach(function(link){
+        var id = String(link && (link.id != null ? link.id : link.link_id != null ? link.link_id : '')).trim();
+        if (!id) return;
+
+        var linkUrl = String(link.link || link.url || link.destination_url || '').trim();
+        var norm = normUrlStrict_(linkUrl);
+        linkMap[id] = linkUrl;
+
+        var localItem = null;
+        if (norm) {
+          localItem = bucket.items.find(function(item){ return item.urlP1 === norm; }) || null;
+        }
+
+        var percent = 0;
+        if (localItem) {
+          matchedAny = true;
+          localItem.percentualAtualRota = toNumber_(link.percentage || link.percentual || 0);
+          localItem.diferencaPercentual = localItem.percentualSugerido - localItem.percentualAtualRota;
+          percent = localItem.percentualSugerido;
+        } else {
+          percent = toNumber_(link.percentage || link.percentual || 0);
+          if (norm) warnings.push([new Date(), group.operacao, group.suboperacao, norm, 'URL_ROTA_FORA_SUBOPERACAO', 'URL existe na rota mas não na suboperação.']);
+        }
+
+        if (!isFinite(percent) || percent < 0) percent = 0;
+        pctMap[id] = Math.round(percent * 100) / 100;
+      });
+
       bucket.items.forEach(function(item){
         var routeItem = routeByNorm[item.urlP1];
         if (!routeItem) {
           warnings.push([new Date(), group.operacao, group.suboperacao, item.urlP1, 'URL_LOCAL_NAO_NA_ROTA', 'URL da suboperação não encontrada na rota.']);
           history.push(buildHistoryRow_(item, bucket.config, item.percentualSugerido, '', 'aviso', 'URL da suboperação não encontrada na rota.'));
-          return;
         }
-        item.percentualAtualRota = toNumber_(routeItem.percentage || routeItem.percentual || 0);
-        item.diferencaPercentual = item.percentualSugerido - item.percentualAtualRota;
-        updates.push({ link_id: routeItem.id || routeItem.link_id, url: routeItem.url || routeItem.link, percentage: Number(item.percentualSugerido.toFixed(6)) });
       });
 
-      routeLinks.forEach(function(link){
-        var n = normUrlStrict_(link.url || link.link || '');
-        var existsLocal = bucket.items.some(function(item){ return item.urlP1 === n; });
-        if (!existsLocal) warnings.push([new Date(), group.operacao, group.suboperacao, n, 'URL_ROTA_FORA_SUBOPERACAO', 'URL existe na rota mas não na suboperação.']);
-      });
+      var ids = Object.keys(pctMap);
+      if (ids.length) {
+        var total = ids.reduce(function(acc, id){ return acc + (pctMap[id] || 0); }, 0);
+        if (total > 0 && Math.abs(total - 100) > 0.05) {
+          var scale = 100 / total;
+          total = 0;
+          ids.forEach(function(id){
+            var scaled = Math.round((pctMap[id] * scale) * 100) / 100;
+            pctMap[id] = Math.max(0, scaled);
+            total += pctMap[id];
+          });
+          var diff = Math.round((total - 100) * 100) / 100;
+          if (Math.abs(diff) >= 0.01) {
+            var adjustId = ids[ids.length - 1];
+            pctMap[adjustId] = Math.max(0, Math.round((pctMap[adjustId] - diff) * 100) / 100);
+          }
+        }
+      }
 
-      if (updates.length) {
-        var pushResp = pushRoutePercentages_(bucket.config, updates);
-        var ok = pushResp.code >= 200 && pushResp.code < 300;
+      if (matchedAny && ids.length) {
+        var pushResp = pushRoutePercentages_(bucket.config, linkMap, pctMap);
+        var ok = pushResp.ok && pushResp.body && String(pushResp.body.status || '').toLowerCase() === 'success';
         bucket.items.forEach(function(item){
-          history.push(buildHistoryRow_(item, bucket.config, item.percentualSugerido, item.percentualSugerido, ok ? 'ok' : 'erro', ok ? 'Sincronizado com sucesso.' : ('Falha API: HTTP ' + pushResp.code)));
+          var sent = item.percentualSugerido;
+          history.push(buildHistoryRow_(item, bucket.config, item.percentualSugerido, sent, ok ? 'ok' : 'erro', ok ? 'Sincronizado com sucesso.' : ('Falha API: HTTP ' + pushResp.code)));
         });
       }
 
