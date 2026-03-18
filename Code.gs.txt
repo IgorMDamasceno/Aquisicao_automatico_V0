@@ -1159,14 +1159,15 @@ function calculateCpcDistribution(params) {
   });
 
   var cfg = getConfig();
-  var allP1Entries = (cfg.rows || []).filter(function(r){ return String(r.parte || '').toUpperCase() === 'P1'; });
-  var p1Entries = allP1Entries.filter(function(r){
+  var cfgRowsFiltered = (cfg.rows || []).filter(function(r){
     var opNorm = normText_(r.operacao);
     var subNorm = normText_(r.suboperacao);
     if (requestedOpNorm && opNorm !== requestedOpNorm) return false;
     if (requestedSubNorm && subNorm !== requestedSubNorm) return false;
     return true;
   });
+  var allP1Entries = (cfg.rows || []).filter(function(r){ return String(r.parte || '').toUpperCase() === 'P1'; });
+  var p1Entries = cfgRowsFiltered.filter(function(r){ return String(r.parte || '').toUpperCase() === 'P1'; });
 
   var routeByKey = {};
   var groupLabelByKey = {};
@@ -1177,13 +1178,36 @@ function calculateCpcDistribution(params) {
   });
 
   var localUrlsByGroup = {};
-  p1Entries.forEach(function(entry){
+  var localUrlPageByGroup = {};
+  var duplicateUrlWarningsByGroup = {};
+  var pageByUrlByGroup = {};
+
+  cfgRowsFiltered.forEach(function(entry){
     var key = keyFor_(entry.operacao, entry.suboperacao);
-    if (!localUrlsByGroup[key]) localUrlsByGroup[key] = {};
+    if (!pageByUrlByGroup[key]) pageByUrlByGroup[key] = {};
     if (!groupLabelByKey[key]) groupLabelByKey[key] = { operacao: entry.operacao || '', suboperacao: entry.suboperacao || '' };
     (entry.urls || []).forEach(function(u){
       var normalized = normUrlStrict_(u);
-      if (normalized) localUrlsByGroup[key][normalized] = true;
+      if (!normalized) return;
+      if (!pageByUrlByGroup[key][normalized]) pageByUrlByGroup[key][normalized] = entry.pagina || '';
+    });
+  });
+
+  p1Entries.forEach(function(entry){
+    var key = keyFor_(entry.operacao, entry.suboperacao);
+    if (!localUrlsByGroup[key]) localUrlsByGroup[key] = {};
+    if (!localUrlPageByGroup[key]) localUrlPageByGroup[key] = {};
+    if (!duplicateUrlWarningsByGroup[key]) duplicateUrlWarningsByGroup[key] = {};
+    if (!groupLabelByKey[key]) groupLabelByKey[key] = { operacao: entry.operacao || '', suboperacao: entry.suboperacao || '' };
+    (entry.urls || []).forEach(function(u){
+      var normalized = normUrlStrict_(u);
+      if (!normalized) return;
+      localUrlsByGroup[key][normalized] = true;
+      if (!localUrlPageByGroup[key][normalized]) {
+        localUrlPageByGroup[key][normalized] = entry.pagina || '';
+      } else if (localUrlPageByGroup[key][normalized] !== (entry.pagina || '')) {
+        duplicateUrlWarningsByGroup[key][normalized] = true;
+      }
     });
   });
 
@@ -1248,11 +1272,16 @@ function calculateCpcDistribution(params) {
 
   Object.keys(routeByKey).forEach(function(groupKey){ ensureGroup_(groupKey); });
 
-  var metricsByGroup = {};
+  var pageMetricsByGroup = {};
   Object.keys(groupsMap).forEach(function(groupKey){
-    metricsByGroup[groupKey] = {};
-    Object.keys(groupsMap[groupKey].urls).forEach(function(url){
-      metricsByGroup[groupKey][url] = { impressions: 0, clicks: 0, revenue: 0, requests: 0, coverageReqWeighted: 0 };
+    pageMetricsByGroup[groupKey] = {};
+    var pagesInGroup = {};
+    Object.keys(pageByUrlByGroup[groupKey] || {}).forEach(function(url){
+      var page = pageByUrlByGroup[groupKey][url];
+      if (page) pagesInGroup[page] = true;
+    });
+    Object.keys(pagesInGroup).forEach(function(page){
+      pageMetricsByGroup[groupKey][page] = { impressions: 0, clicks: 0, revenue: 0, requests: 0, coverageReqWeighted: 0 };
     });
   });
 
@@ -1272,9 +1301,13 @@ function calculateCpcDistribution(params) {
   data.slice(1).forEach(function(row){
     var normalizedUrl = normUrlStrict_(row[col.url] || '');
     if (!normalizedUrl) return;
-    Object.keys(metricsByGroup).forEach(function(groupKey){
-      var bucket = metricsByGroup[groupKey][normalizedUrl];
-      if (!bucket) return;
+    Object.keys(pageMetricsByGroup).forEach(function(groupKey){
+      var pageName = (pageByUrlByGroup[groupKey] || {})[normalizedUrl];
+      if (!pageName) return;
+      if (!pageMetricsByGroup[groupKey][pageName]) {
+        pageMetricsByGroup[groupKey][pageName] = { impressions: 0, clicks: 0, revenue: 0, requests: 0, coverageReqWeighted: 0 };
+      }
+      var bucket = pageMetricsByGroup[groupKey][pageName];
       var requests = toNumber_(row[col.requests]);
       var coverage = toNumber_(row[col.coverage]);
       bucket.impressions += toNumber_(row[col.impressions]);
@@ -1291,10 +1324,12 @@ function calculateCpcDistribution(params) {
     var routeCfg = routeByKey[groupKey] || null;
     var routeUrlsSet = routeUrlsByGroup[groupKey] || {};
     var localUrlsSet = localUrlsByGroup[groupKey] || {};
+    var localUrlPageMap = localUrlPageByGroup[groupKey] || {};
     var routeCurrentPct = routeCurrentPctByGroup[groupKey] || {};
 
     var candidates = Object.keys(group.urls).map(function(url){
-      var m = metricsByGroup[groupKey][url] || { impressions:0, clicks:0, revenue:0, requests:0, coverageReqWeighted:0 };
+      var pageName = localUrlPageMap[url] || (pageByUrlByGroup[groupKey] || {})[url] || '';
+      var m = pageName ? ((pageMetricsByGroup[groupKey] || {})[pageName] || { impressions:0, clicks:0, revenue:0, requests:0, coverageReqWeighted:0 }) : { impressions:0, clicks:0, revenue:0, requests:0, coverageReqWeighted:0 };
       var coverage = m.requests > 0 ? (m.coverageReqWeighted / m.requests) : 0;
       var perdaUsuario = (m.requests * (coverage / 100)) - m.impressions;
       var correctedClicks = m.clicks + Math.ceil(Math.max(0, perdaUsuario));
@@ -1303,6 +1338,8 @@ function calculateCpcDistribution(params) {
       var reasons = [];
       if (!localUrlsSet[url]) reasons.push('URL existe na rota, mas não existe na suboperação local.');
       if (!routeUrlsSet[url]) reasons.push('URL existe na suboperação local, mas não existe na rota.');
+      if (!pageName) reasons.push('URL sem Página de Queda (P1) correspondente na suboperação.');
+      if (duplicateUrlWarningsByGroup[groupKey] && duplicateUrlWarningsByGroup[groupKey][url]) reasons.push('URL duplicada em mais de uma Página de Queda P1 na suboperação.');
       if (!routeCfg) reasons.push('Sem configuração de rota/API para Operação + Suboperação');
       else if (!routeCfg.automacaoAtiva) reasons.push('Automação inativa para Operação + Suboperação');
       if (m.requests > 50 && m.revenue <= 0) reasons.push('Mais de 50 solicitações e receita zero');
@@ -1312,6 +1349,7 @@ function calculateCpcDistribution(params) {
         operacao: group.operacao,
         suboperacao: group.suboperacao,
         urlP1: url,
+        pagina: pageName,
         requests: m.requests,
         revenue: m.revenue,
         cpcCorrigido: cpcCorrigido,
